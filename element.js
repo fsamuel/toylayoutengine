@@ -7,7 +7,7 @@
   var idMap = {};
 
   function Node() {
-    this.dirty_ = false;
+    this.dirtyLayout_ = false;
     this.layoutNode_ = this.createLayoutNode_();
     this.defineProperties_();
     idMap[this.id] = this;
@@ -22,6 +22,10 @@
       'children': {
         value: [],
         readonly: true
+      },
+      'color': {
+        value: 'white',
+        paint: true
       },
       'height':  {
         value: 0,
@@ -97,6 +101,10 @@
         // Mark layout as dirty if this is a layout inducing property.
         if (property.layout)
           this.setLayoutDirty_();
+
+        // Mark paint as dirty if this is a paint inducing property.
+        if (property.paint)
+          this.setPaintDirty_();
       }.bind(this),
       enumerable: true
     });
@@ -130,14 +138,14 @@
       return;
 
     // If neither our parent or this node is dirty, then there's no work to do.
-    if ((!this.parent || !this.parent.dirty_) && !this.dirty_)
+    if ((!this.parent || !this.parent.dirtyLayout_) && !this.dirtyLayout_)
       return;
 
     // Compute the new layout. If the layout of this node goes dirty, then we
     // need to layout all the children too.
     this.computeLayout_();
 
-    if (!this.dirty_)
+    if (!this.dirtyLayout_)
       return;
 
     var children = this.getChildren_();
@@ -145,17 +153,7 @@
       children[i].layoutIfNecessary_();
 
     // All layout computations are done. This node is clean again.
-    this.dirty_ = false;
-  };
-
-  Node.prototype.setLayoutDirty_ = function() {
-    // Mark this node as dirty, and all ancestors up to the document.
-    this.dirty_ = true;
-    var parent = this.parent;
-    while (parent != null) {
-      parent.dirty_ = true;
-      parent = parent.parent;
-    }
+    this.dirtyLayout_ = false;
   };
 
   Node.prototype.setDocument_ = function(document) {
@@ -163,6 +161,23 @@
     var children = this.getChildren_();
     for (var i in children)
       children[i].setDocument_(document);
+  };
+
+  Node.prototype.setLayoutDirty_ = function() {
+    // Mark this node as dirty, and all ancestors up to the document.
+    this.dirtyLayout_ = true;
+    var parent = this.parent;
+    while (parent != null) {
+      parent.dirtyLayout_ = true;
+      parent = parent.parent;
+    }
+  };
+
+  Node.prototype.setPaintDirty_ = function() {
+    if (!this.document)
+      return;
+
+    this.document.dirtyPaint_ = true;
   };
 
   Node.prototype.appendChild = function(node) {
@@ -232,12 +247,12 @@
 
     if (newLeft != this.layoutNode_.left_) {
       this.layoutNode_.left_ = newLeft;
-      this.dirty_ = true;
+      this.dirtyLayout_ = true;
     }
 
     if (newTop != this.layoutNode_.top_) {
       this.layoutNode_.top_ = newTop;
-      this.dirty_ = true;
+      this.dirtyLayout_ = true;
     }
 
     // TODO(fsamuel): This code is trivial now but will grow in complexity with
@@ -247,12 +262,12 @@
 
     if (newWidth != this.layoutNode_.width_) {
       this.layoutNode_.width_ = newWidth;
-      this.dirty_ = true;
+      this.dirtyLayout_ = true;
     }
 
     if (newHeight != this.layoutNode_.height_) {
       this.layoutNode_.height_ = newHeight;
-      this.dirty_ = true;
+      this.dirtyLayout_ = true;
     }
   };
 
@@ -309,18 +324,24 @@
     Node.call(this);
     // Mark this node as a document node.
     this.props_['document'].value = this;
+    this.dirtyPaint_ = false;
   }
 
   Document.prototype.__proto__ = Node.prototype;
 
   Document.prototype.layoutIfNecessary_ = function() {
-    if (!this.dirty_)
+    if (!this.dirtyLayout_)
       return;
 
     Node.prototype.layoutIfNecessary_.call(this);
 
     // Repaint the canvas
     this.paint_();
+  };
+
+  Document.prototype.paint_ = function() {
+    Node.prototype.paint_.call(this);
+    this.dirtyPaint_ = false;
   };
 
   function LayoutNode() {
