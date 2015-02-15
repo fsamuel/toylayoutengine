@@ -96,33 +96,48 @@
     }
   };
 
+  Node.prototype.defaultPropertyGetter_ = function(property) {
+    return property.value;
+  };
+
+  Node.prototype.defaultPropertySetter_ = function(property, value) {
+    if (property.readonly)
+      return;
+
+    // If the value hasn't changed then there's no work to do.
+    if (property.value === value)
+      return;
+
+    // If the value is the wrong type, then ignore it.
+    if (typeof property.value != typeof value)
+      return;
+
+    property.value = value;
+
+    // Mark layout as dirty if this is a layout inducing property.
+    if (property.layout)
+      this.setLayoutDirty_();
+
+    // Mark paint as dirty if this is a paint inducing property.
+    if (property.paint)
+      this.setPaintDirty_();
+  };
+
   Node.prototype.defineProperty_ = function(prop) {
     Object.defineProperty(this, prop, {
       get: function() {
-        return this.props_[prop].value;
+        var property = this.props_[prop];
+        if (!property.getter)
+          return this.defaultPropertyGetter_.call(this, property);
+        return property.getter.call(this, property);
       }.bind(this),
       set: function(value) {
         var property = this.props_[prop];
-        if (property.readonly)
+        if (!property.setter) {
+          this.defaultPropertySetter_.call(this, property, value);
           return;
-        
-        // If the value hasn't changed then there's no work to do.
-        if (property.value === value)
-          return;
-
-        // If the value is the wrong type, then ignore it.
-        if (typeof property.value != typeof value)
-          return;
-
-        property.value = value;
-
-        // Mark layout as dirty if this is a layout inducing property.
-        if (property.layout)
-          this.setLayoutDirty_();
-
-        // Mark paint as dirty if this is a paint inducing property.
-        if (property.paint)
-          this.setPaintDirty_();
+        }
+        property.setter.call(this, property, value);
       }.bind(this),
       enumerable: true
     });
@@ -365,12 +380,13 @@
     Node.prototype.layoutIfNecessary_.call(this);
 
     // Repaint the canvas
+    this.dirtyPaint_ = true;
     this.paint_();
   };
 
   Document.prototype.paint_ = function() {
     // If we don't have a canvas to paint to then we have nothing to do.
-    if (!this.canvas)
+    if (!this.canvas || !this.dirtyPaint_)
       return;
 
     var context = this.canvas.getContext('2d');
