@@ -84,6 +84,11 @@
         // If the value hasn't changed then there's no work to do.
         if (property.value === value)
           return;
+
+        // If the value is the wrong type, then ignore it.
+        if (typeof property.value != typeof value)
+          return;
+
         property.value = value;
 
         // Mark layout as dirty if this is a layout inducing property.
@@ -115,7 +120,6 @@
     // need to layout all the children too.
     this.computeLayout_();
 
-    // TODO(fsamuel): Is there a way to avoid relaying out children here?
     if (!this.dirty_)
       return;
 
