@@ -35,6 +35,9 @@
         value: 5,
         layout: true
       },
+      'onPaint': {
+        value: function() {}
+      },
       'parent': {
         value: null,
         readonly: true
@@ -105,6 +108,20 @@
 
   Node.prototype.hasChild_ = function(node) {
     return this.getChildren_().indexOf(node);
+  };
+
+  Node.prototype.paint_ = function() {
+    // TODO(fsamuel): Pass in a canvas here.
+    var e = {};
+
+    // This node first paints itself then paints its children.
+    this.onPaint(e);
+
+    // TODO(fsamuel): If this is going to call user code, then badness might ensue.
+    // Should we copy the children array first?
+    var children = this.getChildren_();
+    for (var i in children)
+      children[i].paint_();
   };
 
   Node.prototype.layoutIfNecessary_ = function() {
@@ -295,6 +312,16 @@
   }
 
   Document.prototype.__proto__ = Node.prototype;
+
+  Document.prototype.layoutIfNecessary_ = function() {
+    if (!this.dirty_)
+      return;
+
+    Node.prototype.layoutIfNecessary_.call(this);
+
+    // Repaint the canvas
+    this.paint_();
+  };
 
   function LayoutNode() {
     this.width_ = 0;
