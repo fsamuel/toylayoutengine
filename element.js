@@ -137,10 +137,6 @@
   };
 
   Node.prototype.paint_ = function(context) {
-    var bounds = this.getContentBounds();
-    context.fillStyle = '#FFFFFF';
-    context.fillRect(0, 0, bounds.width, bounds.height);
-
     var e = {};
     e.context = context;
 
@@ -407,6 +403,12 @@
     bounds.left += this.leftPadding;
     bounds.top += this.topPadding;
     return bounds;
+  };
+
+  Document.prototype.run = function(callback) {
+    callback();
+    this.layoutIfNecessary_();
+    this.paint_();
   };
 
   function LayoutNode() {
