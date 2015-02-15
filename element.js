@@ -143,13 +143,12 @@
     // This node first paints itself then paints its children.
     this.onPaint(e);
 
-
     // TODO(fsamuel): If this is going to call user code, then badness might ensue.
     // Should we copy the children array first?
     var children = this.getChildren_();
     for (var i in children) {
       context.save();
-      bounds = children[i].getContentBounds();
+      var bounds = children[i].getContentBounds();
       context.setTransform(1, 0, 0, 1, bounds.left, bounds.top);
       children[i].paint_(context);
       context.restore();
