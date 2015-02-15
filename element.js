@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-(function LayoutEngine(window) {
+(function LayoutEngine(globals) {
   var currentNodeId = 0;
   var idMap = {};
 
@@ -351,7 +351,7 @@
     this.top_ = 0;
   }
 
-  window.vdom = {
+  globals.vdom = {
     Node: Node,
     Element: Element,
     Document: Document
