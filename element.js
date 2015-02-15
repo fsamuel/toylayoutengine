@@ -204,8 +204,10 @@
   Element.prototype.__proto__ = Node.prototype;
 
   Element.prototype.computeLayout_ = function() {
-    var newLeft = this.parent.layoutNode_.left_ + this.left;
-    var newTop = this.parent.layoutNode_.top_ + this.top;
+    var parentLayout = this.parent.layoutNode_;
+
+    var newLeft = parentLayout.left_ + this.parent.leftPadding + this.left;
+    var newTop = parentLayout.top_ + this.parent.topPadding + this.top;
 
     if (newLeft != this.layoutNode_.left_) {
       this.layoutNode_.left_ = newLeft;
@@ -250,6 +252,18 @@
     bounds.width = this.layoutNode_.width_;
     bounds.height = this.layoutNode_.height_;
 
+    return bounds;
+  };
+
+  Element.prototype.getContentBounds = function() {
+    // If we don't have a document, then simply call getBounds to get the
+    // default Bounds object.
+    var bounds = this.getBounds();
+    if (!this.document)
+      return bounds;
+
+    bounds.left += this.leftPadding;
+    bounds.top += this.topPadding;
     return bounds;
   };
 
