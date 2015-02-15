@@ -11,6 +11,9 @@
     this.layoutNode_ = this.createLayoutNode_();
     this.defineProperties_();
     idMap[this.id] = this;
+
+    // Install the default paint handler.
+    this.onPaint = this.onPaint_;
   }
 
   Node.prototype.initProperties_ = function() {
@@ -65,7 +68,22 @@
     };
   };
 
-  Node.prototype.computeLayout_ = function() {};
+  Node.prototype.computeLayout_ = function() {
+    // TODO(fsamuel): This code is trivial now but will grow in complexity with
+    // relative sizes.
+    var newWidth = this.width;
+    var newHeight = this.height;
+
+    if (newWidth != this.layoutNode_.width_) {
+      this.layoutNode_.width_ = newWidth;
+      this.dirtyLayout_ = true;
+    }
+
+    if (newHeight != this.layoutNode_.height_) {
+      this.layoutNode_.height_ = newHeight;
+      this.dirtyLayout_ = true;
+    }
+  };
 
   Node.prototype.createLayoutNode_ = function() {
     return new LayoutNode();
@@ -118,18 +136,28 @@
     return this.getChildren_().indexOf(node);
   };
 
-  Node.prototype.paint_ = function() {
-    // TODO(fsamuel): Pass in a canvas here.
+  Node.prototype.paint_ = function(context) {
+    var bounds = this.getContentBounds();
+    context.fillStyle = '#FFFFFF';
+    context.fillRect(0, 0, bounds.width, bounds.height);
+
     var e = {};
+    e.context = context;
 
     // This node first paints itself then paints its children.
     this.onPaint(e);
 
+
     // TODO(fsamuel): If this is going to call user code, then badness might ensue.
     // Should we copy the children array first?
     var children = this.getChildren_();
-    for (var i in children)
-      children[i].paint_();
+    for (var i in children) {
+      context.save();
+      bounds = children[i].getContentBounds();
+      context.setTransform(1, 0, 0, 1, bounds.left, bounds.top);
+      children[i].paint_(context);
+      context.restore();
+    }
   };
 
   Node.prototype.layoutIfNecessary_ = function() {
@@ -154,6 +182,12 @@
 
     // All layout computations are done. This node is clean again.
     this.dirtyLayout_ = false;
+  };
+
+  Node.prototype.onPaint_ = function(e) {
+    e.context.fillStyle = this.color;
+    var bounds = this.getContentBounds();
+    e.context.fillRect(0, 0, bounds.width, bounds.height);
   };
 
   Node.prototype.setDocument_ = function(document) {
@@ -240,6 +274,7 @@
   Element.prototype.__proto__ = Node.prototype;
 
   Element.prototype.computeLayout_ = function() {
+    Node.prototype.computeLayout_.call(this);
     var parentLayout = this.parent.layoutNode_;
 
     var newLeft = parentLayout.left_ + this.parent.leftPadding + this.left;
@@ -254,24 +289,10 @@
       this.layoutNode_.top_ = newTop;
       this.dirtyLayout_ = true;
     }
-
-    // TODO(fsamuel): This code is trivial now but will grow in complexity with
-    // relative sizes.
-    var newWidth = this.width;
-    var newHeight = this.height;
-
-    if (newWidth != this.layoutNode_.width_) {
-      this.layoutNode_.width_ = newWidth;
-      this.dirtyLayout_ = true;
-    }
-
-    if (newHeight != this.layoutNode_.height_) {
-      this.layoutNode_.height_ = newHeight;
-      this.dirtyLayout_ = true;
-    }
   };
 
   Element.prototype.getBounds = function() {
+    // TODO(fsamuel): Refactor some of this code into Node.
     var bounds = {
       left: 0,
       top: 0,
@@ -300,6 +321,8 @@
 
     bounds.left += this.leftPadding;
     bounds.top += this.topPadding;
+    bounds.width -= (this.leftPadding + this.rightPadding);
+    bounds.height -= (this.topPadding + this.bottomPadding);
     return bounds;
   };
 
@@ -329,6 +352,16 @@
 
   Document.prototype.__proto__ = Node.prototype;
 
+  Document.prototype.initProperties_ = function() {
+    Node.prototype.initProperties_.call(this);
+    var props = {
+      'canvas': {
+        value: null,
+        paint: true
+      }
+    };
+  };
+
   Document.prototype.layoutIfNecessary_ = function() {
     if (!this.dirtyLayout_)
       return;
@@ -340,8 +373,40 @@
   };
 
   Document.prototype.paint_ = function() {
-    Node.prototype.paint_.call(this);
+    // If we don't have a canvas to paint to then we have nothing to do.
+    if (!this.canvas)
+      return;
+
+    var context = this.canvas.getContext('2d');
+    Node.prototype.paint_.call(this, context);
     this.dirtyPaint_ = false;
+  };
+
+  Document.prototype.attach = function(canvas) {
+    this.canvas = canvas;
+    this.layoutIfNecessary_();
+    this.paint_();
+  };
+
+  Document.prototype.detach = function() {
+    this.canvas = null;
+  };
+
+  Document.prototype.getBounds = function() {
+    var bounds = {
+      left: 0,
+      top: 0,
+      width: this.width,
+      height: this.height
+    };
+    return bounds;
+  };
+
+  Document.prototype.getContentBounds = function() {
+    var bounds = this.getBounds();
+    bounds.left += this.leftPadding;
+    bounds.top += this.topPadding;
+    return bounds;
   };
 
   function LayoutNode() {

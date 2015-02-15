@@ -10,20 +10,36 @@
     <canvas id='renderer'></canvas>
     <script>
       var d = new vdom.Document();
+      d.width = 300;
+      d.height = 300;
+      d.color = 'green';
+
       var e1 = new vdom.Element();
-      var e2 = new vdom.Element();
-      e1.width = 300;
-      e1.height = 300;
+      e1.width = 100;
+      e1.height = 100;
       e1.left = 15;
       e1.top = 10;
+      e1.color = 'red';
 
+      var e2 = new vdom.Element();
+      e2.color = 'blue';
       e2.left = 5;
       e2.top = 4;
       e2.width = 50;
       e2.height = 50;
 
+      var e3 = new vdom.Element();
+      e3.color = 'black';
+      e3.width = 100;
+      e3.height = 100;
+      e3.top = 10;
+      e3.left = 115;
+
       d.appendChild(e1);
+      d.appendChild(e3);
       e1.appendChild(e2);
+
+      d.attach(document.getElementById('renderer'));
     </script>
   </body>
 </html>
