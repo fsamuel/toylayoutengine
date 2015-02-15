@@ -1,0 +1,29 @@
+<!--
+ * Copyright 2015 The Chromium Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file.
+-->
+
+<html>
+  <script src ='element.js'></script>
+  <body>
+    <canvas id='renderer'></canvas>
+    <script>
+      var d = new virtualDOM.Document();
+      var e1 = new virtualDOM.Element();
+      var e2 = new virtualDOM.Element();
+      e1.width = 300;
+      e1.height = 300;
+      e1.left = 15;
+      e1.top = 10;
+
+      e2.left = 5;
+      e2.top = 4;
+      e2.width = 50;
+      e2.height = 50;
+
+      d.appendChild(e1);
+      e1.appendChild(e2);
+    </script>
+  </body>
+</html>
