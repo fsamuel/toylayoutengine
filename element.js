@@ -343,6 +343,7 @@
     // Mark this node as a document node.
     this.props_['document'].value = this;
     this.dirtyPaint_ = false;
+    this.lifecycleTimer_ = new Timer();
   }
 
   Document.prototype.__proto__ = Node.prototype;
@@ -377,14 +378,19 @@
     this.dirtyPaint_ = false;
   };
 
-  Document.prototype.attach = function(canvas) {
-    this.canvas = canvas;
+  Document.prototype.runDocumentLifecycle_ = function() {
     this.layoutIfNecessary_();
     this.paint_();
   };
 
+  Document.prototype.attach = function(canvas) {
+    this.canvas = canvas;
+    this.lifecycleTimer_.start(10, this.runDocumentLifecycle_.bind(this));
+  };
+
   Document.prototype.detach = function() {
     this.canvas = null;
+    this.lifecycleTimer_.stop();
   };
 
   Document.prototype.getBounds = function() {
@@ -404,10 +410,39 @@
     return bounds;
   };
 
-  Document.prototype.run = function(callback) {
-    callback();
-    this.layoutIfNecessary_();
-    this.paint_();
+  function Timer() {
+    this.interval_ = 0;
+    this.running_ = false;
+    this.callback_ = null;
+  }
+
+  Timer.prototype.onElapsed_ = function() {
+    if (!this.running_)
+      return;
+    this.callback_();
+    globals.setTimeout(this.onElapsed_.bind(this), this.interval_);
+  };
+
+  // If no parameters are provided, then the Timer will use the existing parameters.
+  // If no callback is available, the timer will not start.
+  // If the timer is already running, then it will chnage the interval at the
+  // end of this interval.
+  Timer.prototype.start = function(interval, callback) {
+    if (interval)
+      this.interval_ = interval;
+
+    if (typeof callback === 'function')
+      this.callback_ = callback;
+
+    if (this.running_ || !this.callback_)
+      return;
+
+    this.running_ = true;
+    globals.setTimeout(this.onElapsed_.bind(this), this.interval_);
+  };
+
+  Timer.prototype.stop = function() {
+    this.running_ = false;
   };
 
   function LayoutNode() {
