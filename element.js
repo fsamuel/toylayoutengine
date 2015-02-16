@@ -6,6 +6,33 @@
   var currentNodeId = 0;
   var idMap = {};
 
+  function SizeProperty(defaultSize) {
+    this.set(defaultSize);
+  }
+
+  SizeProperty.prototype.get = function() {
+    if (!this.isPercentage_)
+      return this.value_;
+
+    return this.value_ + '%';
+  };
+
+  SizeProperty.prototype.set = function(value) {
+    var oldValue = this.value_;
+    var oldIsPercentage = this.isPercentage_;
+    this.isPercentage_ = (typeof value === 'string') &&
+        (value.substr(value.length - 1) === '%');
+    var val = parseInt(value) || 0;
+    this.value_ = this.isPercentage_ ? Math.min(Math.max(val, 0), 100) : val;
+    return (oldValue != this.value_) || (oldIsPercentage != this.isPercentage_);
+  };
+
+  SizeProperty.prototype.resolve = function(parentSize) {
+    if (!this.isPercentage_)
+      return this.value_;
+    return Math.round((parentSize * this.value_) / 100);
+  };
+
   function Node() {
     this.dirtyLayout_ = false;
     this.layoutNode_ = this.createLayoutNode_();
@@ -31,7 +58,9 @@
         paint: true
       },
       'height':  {
-        value: 0,
+        value: new SizeProperty(0),
+        getter: SizeProperty.prototype.get,
+        setter: SizeProperty.prototype.set,
         layout: true
       },
       'id': {
@@ -62,17 +91,20 @@
         layout: true
       },
       'width': {
-        value: 0,
+        value: new SizeProperty(0),
+        getter: SizeProperty.prototype.get,
+        setter: SizeProperty.prototype.set,
         layout: true
       }
     };
   };
 
   Node.prototype.computeLayout_ = function() {
-    // TODO(fsamuel): This code is trivial now but will grow in complexity with
-    // relative sizes.
-    var newWidth = this.width;
-    var newHeight = this.height;
+    var parentWidth = this.parent ? this.parent.layoutNode_.width_ : 0;
+    var parentHeight = this.parent ? this.parent.layoutNode_.height_ : 0;
+
+    var newWidth = this.props_['width'].value.resolve(parentWidth);
+    var newHeight = this.props_['height'].value.resolve(parentHeight);
 
     if (newWidth != this.layoutNode_.width_) {
       this.layoutNode_.width_ = newWidth;
@@ -102,25 +134,18 @@
 
   Node.prototype.defaultPropertySetter_ = function(property, value) {
     if (property.readonly)
-      return;
+      return false;
 
     // If the value hasn't changed then there's no work to do.
     if (property.value === value)
-      return;
+      return false;
 
     // If the value is the wrong type, then ignore it.
     if (typeof property.value != typeof value)
-      return;
+      return false;
 
     property.value = value;
-
-    // Mark layout as dirty if this is a layout inducing property.
-    if (property.layout)
-      this.setLayoutDirty_();
-
-    // Mark paint as dirty if this is a paint inducing property.
-    if (property.paint)
-      this.setPaintDirty_();
+    return true;
   };
 
   Node.prototype.defineProperty_ = function(prop) {
@@ -129,15 +154,29 @@
         var property = this.props_[prop];
         if (!property.getter)
           return this.defaultPropertyGetter_.call(this, property);
-        return property.getter.call(this, property);
+        return property.getter.call(property.value);
       }.bind(this),
       set: function(value) {
         var property = this.props_[prop];
-        if (!property.setter) {
-          this.defaultPropertySetter_.call(this, property, value);
-          return;
+
+        var changed = false;
+        if (property.setter) {
+          changed = property.setter.call(property.value, value);
+        } else {
+          changed = this.defaultPropertySetter_.call(this, property, value);
         }
-        property.setter.call(this, property, value);
+
+        // If the value hasn't change then there's nothing more to do.
+        if (!changed)
+          return;
+
+        // Mark layout as dirty if this is a layout-inducing property.
+        if (property.layout)
+          this.setLayoutDirty_();
+
+        // Mark paint as dirty if this is a paint-inducing property.
+        if (property.paint)
+          this.setPaintDirty_();
       }.bind(this),
       enumerable: true
     });
@@ -285,6 +324,8 @@
 
   Element.prototype.computeLayout_ = function() {
     Node.prototype.computeLayout_.call(this);
+    // Elements are never top level nodes, and if we're computing layout then
+    // that means that we're part of the tree.
     var parentLayout = this.parent.layoutNode_;
 
     var newLeft = parentLayout.left_ + this.parent.leftPadding + this.left;
