@@ -249,18 +249,15 @@
   Node.prototype.setLayoutDirty_ = function() {
     // Mark this node as dirty, and all ancestors up to the document.
     this.dirtyLayout_ = true;
-    var parent = this.parent;
-    while (parent != null) {
-      parent.dirtyLayout_ = true;
-      parent = parent.parent;
-    }
+    if (this.parent)
+      this.parent.setLayoutDirty_();
   };
 
   Node.prototype.setPaintDirty_ = function() {
     if (!this.document)
       return;
 
-    this.document.dirtyPaint_ = true;
+    this.document.setPaintDirty_();
   };
 
   Node.prototype.appendChild = function(node) {
@@ -399,7 +396,7 @@
     // Mark this node as a document node.
     this.props_['document'].value = this;
     this.dirtyPaint_ = false;
-    this.lifecycleTimer_ = new Timer();
+    this.frameRequestId_ = 0;
   }
 
   Document.prototype.__proto__ = Node.prototype;
@@ -435,19 +432,43 @@
     this.dirtyPaint_ = false;
   };
 
+  Document.prototype.cancelFrame_ = function() {
+    if (!this.frameRequestId_)
+      return;
+    globals.cancelAnimationFrame(this.frameRequestId_);
+    this.frameRequestId_ = 0;
+  };
+
+  Document.prototype.requestFrame_ = function() {
+    if (!this.canvas || this.frameRequestId_ != 0)
+      return;
+    this.frameRequestId_ = globals.requestAnimationFrame(this.runDocumentLifecycle_.bind(this));
+  };
+
   Document.prototype.runDocumentLifecycle_ = function() {
     this.layoutIfNecessary_();
     this.paint_();
+    this.frameRequestId_ = 0;
+  };
+
+  Document.prototype.setLayoutDirty_ = function() {
+    Node.prototype.setLayoutDirty_.call(this);
+    this.requestFrame_();
+  };
+
+  Document.prototype.setPaintDirty_ = function() {
+    this.dirtyPaint_ = true;
+    this.requestFrame_();
   };
 
   Document.prototype.attach = function(canvas) {
     this.canvas = canvas;
-    this.lifecycleTimer_.start(10, this.runDocumentLifecycle_.bind(this));
+    this.requestFrame_();
   };
 
   Document.prototype.detach = function() {
     this.canvas = null;
-    this.lifecycleTimer_.stop();
+    this.cancelFrame_();
   };
 
   Document.prototype.getBounds = function() {
@@ -465,41 +486,6 @@
     bounds.left += this.leftPadding;
     bounds.top += this.topPadding;
     return bounds;
-  };
-
-  function Timer() {
-    this.interval_ = 0;
-    this.running_ = false;
-    this.callback_ = null;
-  }
-
-  Timer.prototype.onElapsed_ = function() {
-    if (!this.running_)
-      return;
-    this.callback_();
-    globals.setTimeout(this.onElapsed_.bind(this), this.interval_);
-  };
-
-  // If no parameters are provided, then the Timer will use the existing parameters.
-  // If no callback is available, the timer will not start.
-  // If the timer is already running, then it will chnage the interval at the
-  // end of this interval.
-  Timer.prototype.start = function(interval, callback) {
-    if (interval)
-      this.interval_ = interval;
-
-    if (typeof callback === 'function')
-      this.callback_ = callback;
-
-    if (this.running_ || !this.callback_)
-      return;
-
-    this.running_ = true;
-    globals.setTimeout(this.onElapsed_.bind(this), this.interval_);
-  };
-
-  Timer.prototype.stop = function() {
-    this.running_ = false;
   };
 
   function LayoutNode() {
