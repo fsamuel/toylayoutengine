@@ -30,14 +30,22 @@
 
       var e3 = new vdom.Element();
       e3.color = 'black';
-      e3.width = 100;
-      e3.height = 100;
+      e3.width = 150;
+      e3.height = 150;
       e3.top = 10;
       e3.left = 115;
+
+      var textBox = new vdom.TextBox();
+      textBox.text = 'The quick brown fox jumps over the lazy dog. ' +
+          'The quick brown fox jumps over the lazy dog.';
+      textBox.color = 'white';
+      textBox.width = 100;
+      textBox.height = 100;
 
       d.appendChild(e1);
       d.appendChild(e3);
       e1.appendChild(e2);
+      e3.appendChild(textBox);
 
       d.attach(document.getElementById('renderer'));
     </script>

@@ -392,8 +392,74 @@
         layout: true
       }
     };
-    for (var prop in props) {
+    for (var prop in props)
       this.props_[prop] = props[prop];
+  };
+
+  function TextBox() {
+    Element.call(this);
+  }
+
+  TextBox.prototype.__proto__ = Element.prototype;
+
+  TextBox.prototype.initProperties_ = function() {
+    Element.prototype.initProperties_.call(this);
+    var props = {
+      'font': {
+        value: '12pt Times New Roman',
+        paint: true
+      },
+      'text': {
+        value: '',
+        paint: true
+      }
+    };
+    for (var prop in props)
+      this.props_[prop] = props[prop];
+  };
+
+  TextBox.prototype.onPaint_ = function(e) {
+    Element.prototype.onPaint_.call(this, e);
+    e.context.fillStyle = '#000000';
+    e.context.font = this.font;
+
+    var spaceWidth = e.context.measureText(' ').width;
+    var words = this.text.split(' ');
+    var wordWidths = [];
+    // Compute the width of each word.
+    // TODO(fsamuel): We should probably cache this array.
+    for (var i in words)
+      wordWidths[i] = e.context.measureText(words[i]).width;
+
+    var bounds = this.getContentBounds();
+
+    // This block of code computes line breaks.
+    var j = 0;
+    var lineWidth = 0;
+    var lineBreaks = [];
+    while (j < words.length) {
+      var additionalWidth = 0;
+      if (lineWidth != 0)
+        additionalWidth = spaceWidth;
+      additionalWidth += wordWidths[j];
+      // If the word can't fit on a single line then let's just fit it in and
+      // clip. Otherwise, if it can fit on a single line, then we'll fine out
+      // how many words (and spaces between words) we can fit in ona  line.
+      if ((wordWidths[j] > bounds.width) ||
+          (lineWidth + additionalWidth) < bounds.width) {
+        lineWidth += additionalWidth;
+        j++;
+      } else {
+        lineBreaks.push(j);
+        lineWidth = 0;
+      }
+    }
+    lineBreaks.push(words.length);
+
+    // For each line break, reconstruct the line and tell the canvas to draw it.
+    for (var i in lineBreaks) {
+      var line = words.slice(i ? lineBreaks[i - 1] : 0, lineBreaks[i]).join(' ');
+      e.context.fillText(line, 0, 14 * (parseInt(i) + 1));
     }
   };
 
@@ -504,6 +570,7 @@
   globals.vdom = {
     Node: Node,
     Element: Element,
-    Document: Document
+    Document: Document,
+    TextBox: TextBox
   };
 })(window);
