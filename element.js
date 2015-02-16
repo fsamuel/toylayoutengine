@@ -204,6 +204,12 @@
       context.save();
       var bounds = children[i].getContentBounds();
       context.setTransform(1, 0, 0, 1, bounds.left, bounds.top);
+      // Clip this child and its children to the bounds of the node.
+      // TODO(fsamuel): Maybe this should be optional? This can be a paint-
+      // inducing property.
+      context.beginPath();
+      context.rect(0, 0, bounds.width, bounds.height);
+      context.clip();
       children[i].paint_(context);
       context.restore();
     }
